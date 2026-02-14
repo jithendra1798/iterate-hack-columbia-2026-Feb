@@ -26,6 +26,7 @@ CIPHER_VOICE_ID = "pNInz6obpgDQGcFmaJgB"  # "Adam" voice
 
 
 async def text_to_speech(text: str) -> Optional[bytes]:
+ 
     """
     Convert CIPHER's text to speech audio bytes.
     Returns raw audio bytes (mp3) or None on failure.
@@ -155,3 +156,78 @@ async def process_cipher_output(text: str, tool_calls: list, phase: str) -> dict
         "audio_base64": audio_to_base64(audio) if audio else None,
         "monitoring": monitoring
     }
+
+
+# ============================================================
+# TEST MODE — Run this file directly to test voice + monitoring
+# ============================================================
+
+# if __name__ == "__main__":
+#     import asyncio
+#     from dotenv import load_dotenv
+#     load_dotenv()  # Load .env file if it exists
+
+#     # Refresh key after loading .env
+#     ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
+
+#     async def test():
+#         print("=" * 60)
+#         print("HEIST — Voice Module Test")
+#         print("=" * 60)
+#         print()
+
+#         # Test 1: Check API key
+#         key = os.environ.get("ELEVENLABS_API_KEY", "")
+#         if key:
+#             print(f"[✓] ElevenLabs API key found: {key[:8]}...")
+#         else:
+#             print("[✗] No ELEVENLABS_API_KEY set!")
+#             print("    Set it with: export ELEVENLABS_API_KEY=sk_your_key_here")
+#             print("    Or create a .env file with: ELEVENLABS_API_KEY=sk_your_key_here")
+#             print()
+
+#         # Test 2: Test monitoring (works without API key)
+#         print("\n--- Testing White Circle Monitoring ---")
+#         good_msg = "Alright partner, I found three vulnerabilities. Your call."
+#         result = await monitor_agent_response(good_msg, [], "CHALLENGE_1")
+#         print(f"Good message check: passed={result['passed']}, flags={result['flags']}")
+
+#         bad_msg = "As an AI language model, I cannot actually hack anything."
+#         result = await monitor_agent_response(bad_msg, [], "CHALLENGE_1")
+#         print(f"Bad message check:  passed={result['passed']}, flags={result['flags']}")
+
+#         # Test 3: Test TTS (needs API key)
+#         print("\n--- Testing ElevenLabs TTS ---")
+#         test_text = "Alright partner, here's the target. Nexus Financial. Three layers of security. You ready?"
+#         audio = await text_to_speech(test_text)
+
+#         if audio:
+#             print(f"[✓] Got audio! Size: {len(audio)} bytes")
+#             # Save to file so you can listen
+#             with open("test_cipher_voice.mp3", "wb") as f:
+#                 f.write(audio)
+#             print("[✓] Saved to test_cipher_voice.mp3 — open it to hear CIPHER!")
+            
+#             # Test base64 encoding
+#             b64 = audio_to_base64(audio)
+#             print(f"[✓] Base64 encoded: {len(b64)} chars")
+#         else:
+#             print("[✗] No audio returned (check API key)")
+
+#         # Test 4: Full pipeline
+#         print("\n--- Testing Full Pipeline ---")
+#         pipeline_result = await process_cipher_output(
+#             text="We're in. Firewall's toast. Moving to the vault.",
+#             tool_calls=[{"tool_name": "execute_code", "tool_input": {}}],
+#             phase="CHALLENGE_1"
+#         )
+#         print(f"Pipeline result:")
+#         print(f"  text: {pipeline_result['text']}")
+#         print(f"  has_audio: {pipeline_result['audio_base64'] is not None}")
+#         print(f"  monitoring: passed={pipeline_result['monitoring']['passed']}")
+
+#         print("\n" + "=" * 60)
+#         print("Tests complete!")
+#         print("=" * 60)
+
+#     asyncio.run(test())
