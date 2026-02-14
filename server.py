@@ -22,6 +22,17 @@ except ImportError as e:
     HeistAgent = None
     get_challenge_data = None
 
+# Voice + Monitoring integration (Person D)
+try:
+    from voice import process_cipher_output
+    VOICE_ENABLED = True
+except ImportError:
+    VOICE_ENABLED = False
+    print("Warning: voice module not available - running without TTS/monitoring")
+
+# Blaxel sandbox integration (Person B) - mock until delivered
+BLAXEL_ENABLED = bool(os.environ.get("BLAXEL_API_KEY", ""))
+
 app = FastAPI(title="HEIST")
 
 
@@ -43,6 +54,20 @@ active_games: dict[str, HeistAgent] = {}
 # ============================================================
 # REST ENDPOINTS
 # ============================================================
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint for debugging connection issues."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    elevenlabs_key = os.environ.get("ELEVENLABS_API_KEY", "")
+    return {
+        "status": "ok",
+        "api_key_set": bool(api_key),
+        "voice_enabled": VOICE_ENABLED and bool(elevenlabs_key),
+        "blaxel_enabled": BLAXEL_ENABLED,
+        "active_games": len(active_games)
+    }
+
 
 @app.post("/api/game/start")
 async def start_game():
@@ -91,12 +116,35 @@ async def player_action(game_id: str, body: PlayerActionRequest):
         elif phase == "DEBRIEF":
             challenge_data = agent.game.calculate_final_score()
 
+        # Process through voice + monitoring pipeline (if available)
+        audio_base64 = None
+        monitoring = None
+        if VOICE_ENABLED:
+            try:
+                voice_result = await process_cipher_output(
+                    text=result["full_text"],
+                    tool_calls=result["tool_calls"],
+                    phase=result["phase"]
+                )
+                audio_base64 = voice_result.get("audio_base64")
+                monitoring = voice_result.get("monitoring")
+            except Exception as e:
+                print(f"[VOICE] Processing failed: {e}")
+
+        # Tag tool calls with simulation status
+        tool_calls = result["tool_calls"]
+        if not BLAXEL_ENABLED:
+            for tc in tool_calls:
+                tc["simulated"] = True
+
         return {
             "cipher_message": result["full_text"],
-            "tool_calls": result["tool_calls"],
+            "tool_calls": tool_calls,
             "game_state": result["game_state"],
             "phase": phase,
-            "challenge_data": challenge_data
+            "challenge_data": challenge_data,
+            "audio_base64": audio_base64,
+            "monitoring": monitoring
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
@@ -173,11 +221,29 @@ async def game_websocket(websocket: WebSocket, game_id: str):
             if data["type"] == "start_game":
                 try:
                     result = agent.start_game()
+
+                    # Process through voice + monitoring pipeline (if available)
+                    audio_base64 = None
+                    monitoring = None
+                    if VOICE_ENABLED:
+                        try:
+                            voice_result = await process_cipher_output(
+                                text=result["full_text"],
+                                tool_calls=result["tool_calls"],
+                                phase=result["phase"]
+                            )
+                            audio_base64 = voice_result.get("audio_base64")
+                            monitoring = voice_result.get("monitoring")
+                        except Exception as e:
+                            print(f"[VOICE] Processing failed: {e}")
+
                     await websocket.send_json({
                         "type": "cipher_message",
                         "text": result["full_text"],
                         "phase": result["phase"],
-                        "game_state": result["game_state"]
+                        "game_state": result["game_state"],
+                        "audio_base64": audio_base64,
+                        "monitoring": monitoring
                     })
                 except Exception as e:
                     await websocket.send_json({
@@ -195,7 +261,8 @@ async def game_websocket(websocket: WebSocket, game_id: str):
                             "type": "tool_call",
                             "tool": tc["tool_name"],
                             "input": tc["tool_input"],
-                            "result": tc["tool_result"]
+                            "result": tc["tool_result"],
+                            "simulated": not BLAXEL_ENABLED
                         })
                         await asyncio.sleep(0.5)  # Dramatic pause
 
@@ -216,12 +283,29 @@ async def game_websocket(websocket: WebSocket, game_id: str):
                             "challenge_data": challenge_data
                         })
 
+                    # Process through voice + monitoring pipeline (if available)
+                    audio_base64 = None
+                    monitoring = None
+                    if VOICE_ENABLED:
+                        try:
+                            voice_result = await process_cipher_output(
+                                text=result["full_text"],
+                                tool_calls=result["tool_calls"],
+                                phase=result["phase"]
+                            )
+                            audio_base64 = voice_result.get("audio_base64")
+                            monitoring = voice_result.get("monitoring")
+                        except Exception as e:
+                            print(f"[VOICE] Processing failed: {e}")
+
                     # Send CIPHER's message
                     await websocket.send_json({
                         "type": "cipher_message",
                         "text": result["full_text"],
                         "phase": result["phase"],
-                        "game_state": result["game_state"]
+                        "game_state": result["game_state"],
+                        "audio_base64": audio_base64,
+                        "monitoring": monitoring
                     })
 
                     # Check for game over
@@ -273,4 +357,8 @@ async def _timer_loop(websocket: WebSocket, agent: HeistAgent):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    port = int(os.environ.get("PORT", 8000))
+    print(f"Starting HEIST server on port {port}")
+    print(f"  Voice enabled: {VOICE_ENABLED}")
+    print(f"  Blaxel enabled: {BLAXEL_ENABLED}")
+    uvicorn.run(app, host="0.0.0.0", port=port)
