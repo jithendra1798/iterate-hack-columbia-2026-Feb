@@ -1,23 +1,38 @@
+interface ServerScore {
+  base_score?: number;
+  time_bonus?: number;
+  total_score?: number;
+  time_remaining?: number;
+  correct_choices?: number;
+  total_choices?: number;
+  grade?: string;
+  penalties?: Array<{seconds: number; reason: string}>;
+  choices?: Array<{phase: string; choice: string; correct: boolean}>;
+}
+
 interface ScoreScreenProps {
   timeTaken: number;
   choicesMade: string[];
   partnershipRating: number;
   onRestart: () => void;
+  serverScore?: ServerScore | null;
 }
 
-const ScoreScreen = ({ timeTaken, choicesMade, partnershipRating, onRestart }: ScoreScreenProps) => {
+const ScoreScreen = ({ timeTaken, choicesMade, partnershipRating, onRestart, serverScore }: ScoreScreenProps) => {
+  // Use server score if available, otherwise calculate locally
+  const totalScore = serverScore?.total_score ?? Math.round(partnershipRating);
+  const timeRemaining = serverScore?.time_remaining ?? (300 - timeTaken);
+  const grade = serverScore?.grade ?? (partnershipRating >= 80 ? 'ELITE' : partnershipRating >= 60 ? 'PROFICIENT' : 'AMATEUR');
+
   const minutes = Math.floor(timeTaken / 60);
   const seconds = timeTaken % 60;
-  const stars = Math.round(partnershipRating / 20);
 
-  const getRating = () => {
-    if (partnershipRating >= 80) return { label: 'ELITE', color: 'text-primary text-glow-green' };
-    if (partnershipRating >= 60) return { label: 'PROFICIENT', color: 'text-secondary text-glow-cyan' };
-    if (partnershipRating >= 40) return { label: 'ADEQUATE', color: 'text-neon-amber' };
-    return { label: 'COMPROMISED', color: 'text-destructive text-glow-red' };
+  const getGradeStyle = (g: string) => {
+    if (g.includes('LEGENDARY') || g.includes('ELITE')) return 'text-primary text-glow-green';
+    if (g.includes('PROFESSIONAL') || g.includes('PROFICIENT')) return 'text-secondary text-glow-cyan';
+    if (g.includes('AMATEUR') || g.includes('ADEQUATE')) return 'text-neon-amber';
+    return 'text-destructive text-glow-red';
   };
-
-  const rating = getRating();
 
   return (
     <div className="min-h-screen pt-14 px-6 pb-6 flex items-center justify-center scanlines">
@@ -31,33 +46,39 @@ const ScoreScreen = ({ timeTaken, choicesMade, partnershipRating, onRestart }: S
 
         <div className="space-y-4">
           <div className="flex justify-between border-b border-border pb-3">
-            <span className="text-muted-foreground text-sm">TIME ELAPSED</span>
+            <span className="text-muted-foreground text-sm">TOTAL SCORE</span>
+            <span className="text-primary text-glow-green font-bold text-xl">{totalScore}</span>
+          </div>
+
+          <div className="flex justify-between border-b border-border pb-3">
+            <span className="text-muted-foreground text-sm">TIME REMAINING</span>
             <span className="text-primary text-glow-green font-bold tabular-nums">
-              {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+              {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')}
             </span>
           </div>
 
           <div className="flex justify-between border-b border-border pb-3">
-            <span className="text-muted-foreground text-sm">DECISIONS MADE</span>
-            <span className="text-primary text-glow-green font-bold">{choicesMade.length}</span>
-          </div>
-
-          <div className="flex justify-between border-b border-border pb-3">
-            <span className="text-muted-foreground text-sm">PARTNERSHIP</span>
-            <span className="text-secondary text-glow-cyan font-bold">
-              {'◆'.repeat(stars)}{'◇'.repeat(5 - stars)}
+            <span className="text-muted-foreground text-sm">CORRECT CHOICES</span>
+            <span className="text-primary text-glow-green font-bold">
+              {serverScore?.correct_choices ?? choicesMade.length}/{serverScore?.total_choices ?? choicesMade.length}
             </span>
           </div>
 
           <div className="flex justify-between">
             <span className="text-muted-foreground text-sm">AGENT RATING</span>
-            <span className={`font-bold tracking-wider ${rating.color}`}>{rating.label}</span>
+            <span className={`font-bold tracking-wider ${getGradeStyle(grade)}`}>
+              {grade.split('—')[0].trim()}
+            </span>
           </div>
         </div>
 
         <div className="bg-muted p-4 rounded-sm text-xs text-muted-foreground text-center">
-          &gt; CIPHER: Well done, agent. The data has been secured.<br />
-          &gt; Your performance has been logged. Until next time.
+          &gt; CIPHER: {grade.includes('LEGENDARY') || grade.includes('ELITE')
+            ? 'Perfect heist. Until next time, partner.'
+            : grade.includes('BUSTED')
+            ? 'We got caught... but we\'ll be back.'
+            : 'Job done. We made it out.'
+          }
         </div>
 
         <button

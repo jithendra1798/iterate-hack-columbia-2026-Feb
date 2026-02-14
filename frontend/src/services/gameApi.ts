@@ -14,16 +14,18 @@ export interface ActionResponse {
   cipher_message: string;
   tool_calls: unknown[];
   game_state: Record<string, unknown>;
-  phase: number;
+  phase: string;  // "BRIEFING" | "CHALLENGE_1" | "CHALLENGE_2" | "CHALLENGE_3" | "DEBRIEF"
   challenge_data: Record<string, unknown>;
+  audio_base64?: string | null;
+  monitoring?: Record<string, unknown> | null;
 }
 
 export interface GameStateResponse {
-  phase: number;
+  phase: string;  // "BRIEFING" | "CHALLENGE_1" | "CHALLENGE_2" | "CHALLENGE_3" | "DEBRIEF"
   score: number;
   time_remaining: number;
-  choices_made: string[];
-  penalties: number;
+  choices_made: Array<{phase: string; choice: string; correct: boolean}>;
+  penalties: Array<{seconds: number; reason: string}>;
 }
 
 export async function startGame(): Promise<StartGameResponse> {

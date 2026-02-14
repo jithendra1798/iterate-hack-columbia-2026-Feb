@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { AgentMessage, Choice } from '@/types/heist';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 
 interface ChallengeScreenProps {
   messages: AgentMessage[];
   choices: Choice[];
   onChoice: (choiceId: string) => void;
   challengePhase: number;
+  onTextSubmit?: (text: string) => void;
+  isLoading?: boolean;
+  isCipherSpeaking?: boolean;
 }
 
 const ServerLogsPuzzle = () => (
@@ -88,8 +92,74 @@ W ◄──┼──────╬───────► E │
 
 const puzzles = [ServerLogsPuzzle, CipherPuzzle, MapPuzzle];
 
-const ChallengeScreen = ({ messages, choices, onChoice, challengePhase }: ChallengeScreenProps) => {
+const ChallengeScreen = ({ messages, choices, onChoice, challengePhase, onTextSubmit, isLoading = false, isCipherSpeaking = false }: ChallengeScreenProps) => {
+  const [textInput, setTextInput] = useState('');
   const PuzzleComponent = puzzles[challengePhase] || ServerLogsPuzzle;
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Speech-to-text hook - auto-submit when speech is finalized
+  const handleSpeechResult = useCallback((text: string) => {
+    if (onTextSubmit && text.trim()) {
+      onTextSubmit(text.trim());
+    }
+  }, [onTextSubmit]);
+
+  const { isListening, interimTranscript, isSupported, startListening, stopListening } = useSpeechToText(handleSpeechResult);
+
+  // Determine if input should be disabled
+  const inputDisabled = isLoading || isCipherSpeaking;
+  const micDisabled = inputDisabled || !isSupported;
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Spacebar push-to-talk shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only trigger if spacebar pressed and not in an input field
+      if (e.code === 'Space' &&
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          !micDisabled && !isListening) {
+        e.preventDefault();
+        startListening();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && isListening) {
+        e.preventDefault();
+        stopListening();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isListening, micDisabled, startListening, stopListening]);
+
+  const handleTextSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (textInput.trim() && onTextSubmit && !inputDisabled) {
+      onTextSubmit(textInput.trim());
+      setTextInput('');
+    }
+  };
+
+  const handleMicClick = () => {
+    if (micDisabled) return;
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
 
   return (
     <div className="min-h-screen pt-14 px-4 pb-4 scanlines">
@@ -102,20 +172,21 @@ const ChallengeScreen = ({ messages, choices, onChoice, challengePhase }: Challe
             <span className="w-2 h-2 rounded-full bg-primary" />
             <span className="text-muted-foreground text-xs ml-2">CIPHER_TERMINAL — secure channel</span>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.map((msg) => (
               <div key={msg.id} className="text-sm">
                 <span className={`text-xs ${msg.sender === 'CIPHER' ? 'text-secondary text-glow-cyan' : 'text-primary text-glow-green'}`}>
                   [{msg.sender}]
                 </span>
-                <span className="text-foreground ml-2">{msg.text}</span>
+                <span className="text-foreground ml-2 whitespace-pre-wrap">{msg.text}</span>
               </div>
             ))}
             <span className="terminal-cursor text-primary">█</span>
+            <div ref={messagesEndRef} />
           </div>
 
-          {/* Choices */}
+          {/* Choices - show buttons if available */}
           {choices.length > 0 && (
             <div className="border-t border-border p-4 space-y-2">
               <div className="text-xs text-muted-foreground mb-2">▸ SELECT ACTION:</div>
@@ -128,10 +199,78 @@ const ChallengeScreen = ({ messages, choices, onChoice, challengePhase }: Challe
                              hover:text-glow-green"
                 >
                   {'>'} {choice.label}
+                  {choice.description && (
+                    <span className="text-muted-foreground text-xs ml-2">— {choice.description}</span>
+                  )}
                 </button>
               ))}
             </div>
           )}
+
+          {/* Text input - always show for typing responses */}
+          <form onSubmit={handleTextSubmit} className="border-t border-border p-4">
+            {/* Status indicator */}
+            {(isListening || isCipherSpeaking || isLoading) && (
+              <div className="mb-2 text-xs">
+                {isCipherSpeaking && (
+                  <span className="text-secondary animate-pulse">▸ CIPHER is speaking...</span>
+                )}
+                {isListening && !isCipherSpeaking && (
+                  <span className="text-destructive animate-pulse">▸ Listening... (release SPACE to send)</span>
+                )}
+                {isLoading && !isCipherSpeaking && !isListening && (
+                  <span className="text-neon-amber animate-pulse">▸ Processing...</span>
+                )}
+              </div>
+            )}
+
+            {/* Show interim transcript while listening */}
+            {isListening && interimTranscript && (
+              <div className="mb-2 text-sm text-muted-foreground italic">
+                "{interimTranscript}"
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              {/* Mic button */}
+              {isSupported && (
+                <button
+                  type="button"
+                  onClick={handleMicClick}
+                  disabled={micDisabled}
+                  className={`border px-3 py-2 text-sm transition-all ${
+                    isListening
+                      ? 'border-destructive bg-destructive/20 text-destructive animate-pulse'
+                      : micDisabled
+                      ? 'border-muted-foreground/50 text-muted-foreground/50 cursor-not-allowed'
+                      : 'border-secondary text-secondary hover:bg-secondary/10'
+                  }`}
+                  title={micDisabled ? (isCipherSpeaking ? 'CIPHER is speaking' : 'Processing...') : 'Hold SPACE or click to speak'}
+                >
+                  {isListening ? '🔴' : '🎤'}
+                </button>
+              )}
+
+              <input
+                type="text"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder={inputDisabled ? (isCipherSpeaking ? 'CIPHER is speaking...' : 'Processing...') : 'Type your response or hold SPACE to speak...'}
+                disabled={inputDisabled}
+                className={`flex-1 bg-muted border border-border px-4 py-2 text-sm text-primary
+                           focus:border-primary focus:outline-none placeholder:text-muted-foreground
+                           ${inputDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              />
+              <button
+                type="submit"
+                disabled={inputDisabled || !textInput.trim()}
+                className={`border border-primary text-primary px-4 py-2 text-sm
+                           transition-all ${inputDisabled || !textInput.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary hover:text-primary-foreground'}`}
+              >
+                SEND
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* Right: Puzzle */}
