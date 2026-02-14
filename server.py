@@ -48,10 +48,10 @@ active_games: dict[str, HeistAgent] = {}
 async def start_game():
     """Create a new game and return CIPHER's opening message."""
     game_id = os.urandom(8).hex()
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    api_key = os.environ.get("GEMINI_API_KEY", "")
 
     if not api_key:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
 
     try:
         agent = HeistAgent(api_key)
@@ -273,4 +273,4 @@ async def _timer_loop(websocket: WebSocket, agent: HeistAgent):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)
