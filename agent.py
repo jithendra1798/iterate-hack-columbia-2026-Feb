@@ -586,19 +586,23 @@ class HeistAgent:
         """Handle player choice for Challenge 1 (Firewall)."""
         text = player_input.lower()
         
-        # Detect which option they chose
-        if any(kw in text for kw in ["sql", "injection", "option a", "a", "login", "auth"]):
-            self.game.record_choice("CHALLENGE_1", "SQL Injection", correct=True)
-            self.game.challenge_1_result = "success"
-            self.game.advance_phase()  # Move to CHALLENGE_2
+        # Check SSL/cert FIRST (most specific keywords, avoids false match on single letters)
+        if any(kw in text for kw in ["ssl", "cert", "certificate", "option c", "expired"]):
+            self.game.record_choice("CHALLENGE_1", "SSL Exploit", correct=False)
+            self.game.apply_penalty(30, "SSL already patched")
+            self.game.challenge_1_result = "fail"
+            self.game.advance_phase()  # Move to CHALLENGE_2 after fallback
             return (
-                f"Player chose: SQL INJECTION (Option A — CORRECT CHOICE)\n"
-                f"Execute the SQL injection attack. Call execute_code with attack_type='sql_injection'. "
-                f"After success, celebrate briefly then transition to Challenge 2.\n"
+                f"Player chose: SSL EXPLOIT (Option C — WRONG, patched already)\n"
+                f"Call execute_code with attack_type='ssl_exploit'. The result shows it was patched. "
+                f"30 seconds wasted. Then fall back to SQL injection automatically — tell the partner "
+                f"'dead end but I see another way in' and execute the SQL injection to get through. "
+                f"Then transition to Challenge 2.\n"
                 f"Player said: {player_input}"
             )
-        
-        elif any(kw in text for kw in ["brute", "port", "8080", "option b", "b"]):
+
+        # Check brute force SECOND (before SQL so "port"/"8080" are caught)
+        elif any(kw in text for kw in ["brute", "port", "8080", "option b", "force"]):
             self.game.record_choice("CHALLENGE_1", "Brute Force", correct=False)
             self.game.apply_penalty(60, "IDS triggered on port 8080")
             self.game.challenge_1_result = "partial"
@@ -611,17 +615,15 @@ class HeistAgent:
                 f"Player said: {player_input}"
             )
         
-        elif any(kw in text for kw in ["ssl", "cert", "certificate", "option c", "c", "expired"]):
-            self.game.record_choice("CHALLENGE_1", "SSL Exploit", correct=False)
-            self.game.apply_penalty(30, "SSL already patched")
-            self.game.challenge_1_result = "fail"
-            self.game.advance_phase()  # Move to CHALLENGE_2 after fallback
+        # SQL injection LAST (broadest match — this is the correct answer)
+        elif any(kw in text for kw in ["sql", "injection", "option a", "login", "auth", "query"]):
+            self.game.record_choice("CHALLENGE_1", "SQL Injection", correct=True)
+            self.game.challenge_1_result = "success"
+            self.game.advance_phase()  # Move to CHALLENGE_2
             return (
-                f"Player chose: SSL EXPLOIT (Option C — WRONG, patched already)\n"
-                f"Call execute_code with attack_type='ssl_exploit'. The result shows it was patched. "
-                f"30 seconds wasted. Then fall back to SQL injection automatically — tell the partner "
-                f"'dead end but I see another way in' and execute the SQL injection to get through. "
-                f"Then transition to Challenge 2.\n"
+                f"Player chose: SQL INJECTION (Option A — CORRECT CHOICE)\n"
+                f"Execute the SQL injection attack. Call execute_code with attack_type='sql_injection'. "
+                f"After success, celebrate briefly then transition to Challenge 2.\n"
                 f"Player said: {player_input}"
             )
         
@@ -674,7 +676,7 @@ class HeistAgent:
         
         # First choice: which route
         if self.game.escape_route is None:
-            if any(kw in text for kw in ["vent", "shaft", "fast", "route a", "a", "zip"]):
+            if any(kw in text for kw in ["vent", "shaft", "fast", "route a", "zip", "quick", "speed"]):
                 self.game.escape_route = "route_a"
                 route = ESCAPE_DECISIONS["route_a"]
                 return (
@@ -686,7 +688,7 @@ class HeistAgent:
                     f"Player said: {player_input}"
                 )
             
-            elif any(kw in text for kw in ["tunnel", "service", "safe", "route b", "b", "slow"]):
+            elif any(kw in text for kw in ["tunnel", "service", "safe", "route b", "slow", "careful"]):
                 self.game.escape_route = "route_b"
                 route = ESCAPE_DECISIONS["route_b"]
                 return (

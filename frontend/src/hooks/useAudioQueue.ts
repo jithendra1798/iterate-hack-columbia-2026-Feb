@@ -34,7 +34,31 @@ export function useAudioQueue() {
       playNext();
     };
 
+    // Safety timeout — if audio doesn't end within 30s, force reset
+    const safetyTimeout = setTimeout(() => {
+      console.warn('Audio playback safety timeout — forcing reset');
+      if (currentAudioRef.current === audio) {
+        audio.pause();
+        isPlayingRef.current = false;
+        currentAudioRef.current = null;
+        playNext();
+      }
+    }, 30000);
+
+    const cleanup = () => clearTimeout(safetyTimeout);
+    const origOnEnded = audio.onended;
+    audio.onended = () => {
+      cleanup();
+      if (origOnEnded) (origOnEnded as () => void)();
+    };
+    const origOnError = audio.onerror;
+    audio.onerror = () => {
+      cleanup();
+      if (origOnError) (origOnError as () => void)();
+    };
+
     audio.play().catch((err) => {
+      cleanup();
       console.log('Audio autoplay blocked:', err);
       isPlayingRef.current = false;
       currentAudioRef.current = null;

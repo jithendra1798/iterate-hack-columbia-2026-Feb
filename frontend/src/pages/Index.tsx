@@ -54,8 +54,16 @@ const Index = () => {
       try {
         const state = await getGameState(gameId);
         setTimeRemaining(state.time_remaining);
-        setChallengePhase(state.phase);
-        setChoicesMade(state.choices_made);
+        // Convert phase string to puzzle index (0, 1, 2)
+        setCurrentPhase(state.phase as unknown as string);
+        setChallengePhase(phaseToIndex(state.phase as unknown as string));
+        // Extract choice labels from objects
+        if (Array.isArray(state.choices_made)) {
+          const labels = state.choices_made.map((c: unknown) =>
+            typeof c === 'string' ? c : (c as Record<string, unknown>)?.choice as string || ''
+          ).filter(Boolean);
+          setChoicesMade(labels);
+        }
 
         if (state.time_remaining <= 0) {
           setTimerActive(false);
@@ -402,6 +410,7 @@ const Index = () => {
           onTextSubmit={handleTextSubmit}
           isLoading={isLoading}
           isCipherSpeaking={isCipherSpeaking}
+          onStopCipherAudio={clearQueue}
         />
       )}
       {screen === 'score' && (

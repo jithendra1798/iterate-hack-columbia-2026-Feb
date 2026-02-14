@@ -193,14 +193,18 @@ async def game_websocket(websocket: WebSocket, game_id: str):
     if not api_key:
         await websocket.send_json({
             "type": "error",
-                "message": "ANTHROPIC_API_KEY not configured on server"
+            "message": "ANTHROPIC_API_KEY not configured on server"
         })
         await websocket.close()
         return
 
     try:
-        agent = HeistAgent(api_key)
-        active_games[game_id] = agent
+        # Reuse existing agent if game was started via REST (preserves conversation history)
+        if game_id in active_games:
+            agent = active_games[game_id]
+        else:
+            agent = HeistAgent(api_key)
+            active_games[game_id] = agent
     except Exception as e:
         await websocket.send_json({
             "type": "error",

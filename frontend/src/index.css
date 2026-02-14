@@ -22,7 +22,7 @@
     --secondary-foreground: 0 0% 0%;
 
     --muted: 0 0% 12%;
-    --muted-foreground: 120 40% 40%;
+    --muted-foreground: 120 50% 55%;
 
     --accent: 180 100% 50%;
     --accent-foreground: 0 0% 0%;
@@ -98,11 +98,11 @@
       0deg,
       transparent,
       transparent 2px,
-      hsl(120 100% 50% / 0.03) 2px,
-      hsl(120 100% 50% / 0.03) 4px
+      hsl(120 100% 50% / 0.015) 2px,
+      hsl(120 100% 50% / 0.015) 4px
     );
     pointer-events: none;
-    z-index: 50;
+    z-index: 1;
   }
 
   .terminal-cursor {
