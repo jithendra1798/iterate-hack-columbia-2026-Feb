@@ -457,7 +457,7 @@ class HeistAgent:
         self.client = Anthropic(api_key=api_key)
         self.game = GameState()
         self.conversation_history = []
-        self.model = "claude-sonnet-4-5-20250514"  # Fast + smart enough
+        self.model = "claude-sonnet-4-20250514"  # Fast + smart enough
     
     def start_game(self) -> dict:
         """Initialize the game and get CIPHER's opening message."""
@@ -590,6 +590,7 @@ class HeistAgent:
         if any(kw in text for kw in ["sql", "injection", "option a", "a", "login", "auth"]):
             self.game.record_choice("CHALLENGE_1", "SQL Injection", correct=True)
             self.game.challenge_1_result = "success"
+            self.game.advance_phase()  # Move to CHALLENGE_2
             return (
                 f"Player chose: SQL INJECTION (Option A — CORRECT CHOICE)\n"
                 f"Execute the SQL injection attack. Call execute_code with attack_type='sql_injection'. "
@@ -601,6 +602,7 @@ class HeistAgent:
             self.game.record_choice("CHALLENGE_1", "Brute Force", correct=False)
             self.game.apply_penalty(60, "IDS triggered on port 8080")
             self.game.challenge_1_result = "partial"
+            self.game.advance_phase()  # Move to CHALLENGE_2 despite failure
             return (
                 f"Player chose: BRUTE FORCE PORT 8080 (Option B — WRONG, triggers alarm)\n"
                 f"Call execute_code with attack_type='brute_force'. The result shows an alarm was triggered and 60 seconds lost. "
@@ -613,6 +615,7 @@ class HeistAgent:
             self.game.record_choice("CHALLENGE_1", "SSL Exploit", correct=False)
             self.game.apply_penalty(30, "SSL already patched")
             self.game.challenge_1_result = "fail"
+            self.game.advance_phase()  # Move to CHALLENGE_2 after fallback
             return (
                 f"Player chose: SSL EXPLOIT (Option C — WRONG, patched already)\n"
                 f"Call execute_code with attack_type='ssl_exploit'. The result shows it was patched. "

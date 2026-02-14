@@ -44,6 +44,17 @@ active_games: dict[str, HeistAgent] = {}
 # REST ENDPOINTS
 # ============================================================
 
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint for debugging connection issues."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    return {
+        "status": "ok",
+        "api_key_set": bool(api_key),
+        "active_games": len(active_games)
+    }
+
+
 @app.post("/api/game/start")
 async def start_game():
     """Create a new game and return CIPHER's opening message."""
@@ -110,6 +121,40 @@ async def get_state(game_id: str):
         raise HTTPException(status_code=404, detail="Game not found")
 
     return agent.game.to_dict()
+
+
+@app.get("/api/game/{game_id}/challenge-data")
+async def get_current_challenge_data(game_id: str):
+    """Get challenge display data for the current game phase."""
+    agent = active_games.get(game_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    phase = agent.game.phase
+
+    if phase == "BRIEFING":
+        return {
+            "phase": "BRIEFING",
+            "title": "MISSION BRIEFING",
+            "subtitle": "Nexus Financial Digital Vault",
+            "description": "3 security layers to breach. Your AI partner CIPHER will guide you.",
+            "display_type": "briefing"
+        }
+    elif phase == "CHALLENGE_1":
+        return get_challenge_data("challenge_1")
+    elif phase == "CHALLENGE_2":
+        return get_challenge_data("challenge_2")
+    elif phase == "CHALLENGE_3":
+        return get_challenge_data("challenge_3")
+    elif phase == "DEBRIEF":
+        return {
+            "phase": "DEBRIEF",
+            "title": "HEIST COMPLETE",
+            "display_type": "score",
+            "score": agent.game.calculate_final_score()
+        }
+
+    return {"phase": phase, "display_type": "unknown"}
 
 
 @app.get("/api/challenge/{challenge_id}")
