@@ -1,0 +1,143 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 3%;
+    --foreground: 120 100% 50%;
+
+    --card: 0 0% 5%;
+    --card-foreground: 120 100% 50%;
+
+    --popover: 0 0% 5%;
+    --popover-foreground: 120 100% 50%;
+
+    --primary: 120 100% 50%;
+    --primary-foreground: 0 0% 0%;
+
+    --secondary: 180 100% 50%;
+    --secondary-foreground: 0 0% 0%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 120 40% 40%;
+
+    --accent: 180 100% 50%;
+    --accent-foreground: 0 0% 0%;
+
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 120 100% 20%;
+    --input: 120 100% 15%;
+    --ring: 120 100% 50%;
+
+    --radius: 0.25rem;
+
+    --neon-green: 120 100% 50%;
+    --neon-cyan: 180 100% 50%;
+    --neon-red: 0 100% 50%;
+    --neon-amber: 45 100% 50%;
+    --terminal-bg: 0 0% 3%;
+    --terminal-border: 120 100% 20%;
+
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 120 100% 50%;
+    --sidebar-primary: 120 100% 50%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 180 100% 50%;
+    --sidebar-accent-foreground: 0 0% 0%;
+    --sidebar-border: 120 100% 20%;
+    --sidebar-ring: 120 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-mono;
+    font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .text-glow-green {
+    text-shadow: 0 0 7px hsl(120 100% 50%), 0 0 20px hsl(120 100% 50% / 0.5), 0 0 40px hsl(120 100% 50% / 0.2);
+  }
+
+  .text-glow-cyan {
+    text-shadow: 0 0 7px hsl(180 100% 50%), 0 0 20px hsl(180 100% 50% / 0.5), 0 0 40px hsl(180 100% 50% / 0.2);
+  }
+
+  .text-glow-red {
+    text-shadow: 0 0 7px hsl(0 100% 50%), 0 0 20px hsl(0 100% 50% / 0.5), 0 0 40px hsl(0 100% 50% / 0.2);
+  }
+
+  .border-glow-green {
+    box-shadow: 0 0 5px hsl(120 100% 50% / 0.3), inset 0 0 5px hsl(120 100% 50% / 0.1);
+  }
+
+  .border-glow-cyan {
+    box-shadow: 0 0 5px hsl(180 100% 50% / 0.3), inset 0 0 5px hsl(180 100% 50% / 0.1);
+  }
+
+  .scanlines {
+    position: relative;
+  }
+
+  .scanlines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      hsl(120 100% 50% / 0.03) 2px,
+      hsl(120 100% 50% / 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  .terminal-cursor {
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes typewriter {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    92% { opacity: 1; }
+    93% { opacity: 0.8; }
+    94% { opacity: 1; }
+    96% { opacity: 0.9; }
+    97% { opacity: 1; }
+  }
+
+  .animate-flicker {
+    animation: flicker 3s ease-in-out infinite;
+  }
+}
