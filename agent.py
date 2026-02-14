@@ -47,30 +47,34 @@ You will receive a [PHASE] tag in messages indicating the current game state.
 - End with "Ready to go?"
 
 ### [CHALLENGE_1: FIREWALL]
-- You're analyzing server logs to find a way past the firewall
+- You're analyzing intercepted traffic logs to find a way past the firewall
 - Call analyze_logs to examine the data
-- Present 3 attack vectors to your partner:
-  * Option A: SQL injection on the login portal (CORRECT — fast, clean)
-  * Option B: Brute force the open port 8080 (WRONG — triggers alarm, costs 60 seconds)
-  * Option C: Exploit expired SSL certificate (WRONG — patched last week, wastes time)
+- The panel shows REAL traffic patterns — the player must read them to find the vulnerability
+- Present 3 attack vectors to your partner. Keep descriptions to ONE short sentence each:
+  * SQL injection via /api/search (CORRECT — the logs show unsanitized input leaking data)
+  * Brute force port 8080 (WRONG — it's blocked/firewalled, 60 second penalty)
+  * SSL certificate exploit (WRONG — already patched, 30 second penalty)
+- Ask "Which endpoint should we hit?" — let them analyze the logs
 - After human picks, call execute_code with the chosen approach
-- React to success/failure dramatically
+- React to success/failure. Keep it punchy
 
 ### [CHALLENGE_2: VAULT CODE]
-- A cipher text is displayed. You need to crack it together
-- Call decrypt_message to brute-force the first half
-- Tell your partner YOU got the first half but THEY need to find the pattern in the visual clue
-- The visual clue: first letter of each line spells the second half
-- Guide them WITHOUT giving the answer directly. Say things like "look at the structure, not the words"
-- Once they provide their answer, combine both halves
+- The vault code is encrypted with a Caesar cipher (shift of 7)
+- Call decrypt_message to brute-force the shift value and decode the first half
+- Tell them: you cracked the shift (7) and decoded "VWLU" → "OPEN"
+- The second half "ZLZHTL" is shown on their screen — THEY must apply the same −7 shift
+- NEVER tell them the answer directly. Guide them: "Each letter shifts back 7. Z minus 7 is S..."
+- Give ONE hint at a time. Let them work it out
+- The answer is SESAME. Once they say it, combine: OPENSESAME
 
 ### [CHALLENGE_3: ESCAPE]
-- Alarm triggered! You need to get out
-- Call plan_escape_route to analyze options
-- Present 2 routes:
-  * Route A: Through the ventilation shaft — fast (saves 60s) but requires crawling past a motion sensor
-  * Route B: Through the service tunnel — slow but guaranteed safe
-- After first choice, present a second decision point based on their route
+- Alarm triggered! Building security rules are displayed on the panel
+- Call plan_escape_route to analyze the firewall rules
+- Present 2 routes — each uses different security rules:
+  * Route A: Vent shaft → Roof → Zip line — fast (90s) but Rule 1 has a MOTION sensor (HIGH risk)
+  * Route B: Service tunnel → Garage — slow (180s) but only a camera that logs, no alert (LOW risk)
+- Ask them to analyze the rules and decide
+- After first choice, present a second decision point
 - Resolve the escape based on their choices
 
 ### [DEBRIEF]
@@ -247,10 +251,13 @@ def execute_tool(tool_name: str, tool_input: dict, game_state: dict) -> str:
     elif tool_name == "decrypt_message":
         return json.dumps({
             "status": "PARTIAL",
-            "decrypted_portion": "OPEN",
-            "remaining": "████████",
-            "confidence": "92%",
-            "message": "I cracked the first half: 'OPEN'. But the second half uses a different cipher. I need your eyes on the visual pattern — my brute force won't crack it. Look at the structure of the clue, not the words themselves."
+            "method": "Caesar cipher detected",
+            "shift_value": 7,
+            "encrypted_full": "VWLU ZLZHTL",
+            "decrypted_first_half": "OPEN",
+            "remaining_encrypted": "ZLZHTL",
+            "confidence": "99%",
+            "message": "Found it — Caesar cipher, shift of 7. I decoded the first half: VWLU → OPEN. The second half is ZLZHTL. Same shift, but I need your brain on this one — apply the minus-7 shift to each letter."
         })
     
     elif tool_name == "plan_escape_route":
@@ -286,27 +293,26 @@ def execute_tool(tool_name: str, tool_input: dict, game_state: dict) -> str:
 # CHALLENGE DATA
 # ============================================================
 
-# Fake server logs shown in UI for Challenge 1
-FIREWALL_LOGS = """[2026-02-14 08:31:02] AUTH   | 192.168.1.45  | POST /api/auth          | 200 OK | user=admin
-[2026-02-14 08:31:03] AUTH   | 192.168.1.45  | POST /api/auth          | 200 OK | user=admin  
-[2026-02-14 08:31:15] NET    | 0.0.0.0       | Port 8080 LISTENING     | DEBUG MODE ACTIVE
-[2026-02-14 08:31:22] SSL    | admin.nexus    | CERT EXPIRED            | renewal pending
-[2026-02-14 08:32:01] AUTH   | 192.168.1.45  | POST /api/auth          | 200 OK | query=SELECT * FROM users WHERE name='${input}'
-[2026-02-14 08:32:15] IDS    | 0.0.0.0       | Port 8080 MONITORED     | alert_threshold=1
-[2026-02-14 08:33:00] SSL    | admin.nexus    | PATCH DEPLOYED          | cert renewed 2h ago
-[2026-02-14 08:33:45] AUTH   | 192.168.1.45  | POST /api/auth          | 200 OK | input NOT sanitized
-[2026-02-14 08:34:02] NET    | 10.0.0.1      | Firewall rule updated   | port 443 open
-[2026-02-14 08:34:30] AUTH   | WARNING        | SQL query concatenation | no parameterization detected"""
+# Intercepted traffic logs for Challenge 1 — shows real SQL injection pattern
+FIREWALL_LOGS = """GET  /api/users?id=1              200  12ms
+POST /api/auth {user,pass}         200  45ms
+GET  /api/users?id=2               200  11ms
+POST /api/auth {user,pass}         401  38ms
+GET  /api/search?q=test            200  22ms
+GET  /api/search?q=' OR 1=1 --    500  89ms  ← ERROR (SQL syntax)
+POST /api/auth {user,pass}         401  40ms
+GET  /api/users?id=3               200  10ms
+GET  /api/search?q=' UNION SELECT username,password FROM users --  200  312ms ← DATA LEAKED
+GET  /debug:8080/status            403  BLOCKED
+POST /admin (expired SSL cert)     ERR  CONNECTION REFUSED"""
 
-# Cipher puzzle for Challenge 2
-# First letters of each line spell "SESAME" — the second half of the vault code
+# Cipher puzzle for Challenge 2 — Caesar cipher shift 7
+# OPEN encrypted = VWLU, SESAME encrypted = ZLZHTL
 VAULT_CIPHER_VISUAL = """
-Shadows fall across the digital walls
-Every circuit hums with encrypted light  
-Systems locked behind quantum shields
-A thousand keys have failed before
-Machines guard what humans desire
-Enter only those who see the pattern
+ENCRYPTED: VWLU ZLZHTL
+METHOD: Caesar cipher, shift = 7
+CIPHER decoded first half: VWLU → OPEN
+Player must decode: ZLZHTL → ??????
 """
 
 # The full vault code
@@ -637,7 +643,7 @@ class HeistAgent:
             )
     
     def _handle_challenge_2_input(self, player_input: str) -> str:
-        """Handle player input for Challenge 2 (Vault Code)."""
+        """Handle player input for Challenge 2 (Vault Code — Caesar cipher)."""
         text = player_input.upper().strip()
         
         if "SESAME" in text:
@@ -649,24 +655,24 @@ class HeistAgent:
                 f"The full vault code is OPENSESAME. Celebrate! 'We're in the vault!'\n"
                 f"Then IMMEDIATELY transition: alarm was triggered by vault access, "
                 f"start Challenge 3 (Escape). Call plan_escape_route with threat_level='high' "
-                f"and present the two escape options.\n"
+                f"and present the two escape options based on the security rules.\n"
                 f"Player said: {player_input}"
             )
         
         elif "OPEN" in text and "SESAME" not in text:
             return (
-                f"Player said 'OPEN' which is the FIRST half (the part YOU already cracked). "
-                f"Tell them you already have that part. You need THEIR part — the second half. "
-                f"Hint: 'Look at the beginning of each line in the clue.'\n"
+                f"Player said 'OPEN' which is the FIRST half (the part YOU already decoded). "
+                f"Tell them you already have that. You need the SECOND half — 'ZLZHTL' decoded. "
+                f"Hint: 'Apply the same shift of 7 backwards to each letter.'\n"
                 f"Player said: {player_input}"
             )
         
         else:
-            # Wrong answer
+            # Wrong answer — give progressive hints about the Caesar cipher
             return (
                 f"Player guessed wrong: '{player_input}'. "
-                f"Don't reveal the answer! Give a slightly stronger hint: "
-                f"'Not quite. The answer is hidden in plain sight — look at how each line STARTS.'\n"
+                f"Don't reveal the answer! Give a cipher hint: "
+                f"'Not quite. Remember — shift each letter back by 7. Z becomes S, L becomes E... keep going.'\n"
                 f"Player said: {player_input}"
             )
     
@@ -758,44 +764,48 @@ def get_challenge_data(challenge_id: str) -> dict:
     
     if challenge_id == "challenge_1":
         return {
-            "title": "BYPASS THE FIREWALL",
-            "subtitle": "Nexus Financial — External Perimeter",
+            "title": "ANALYZE THE BREACH",
+            "subtitle": "Intercepted Traffic — Find the Vulnerability",
             "display_content": FIREWALL_LOGS,
             "display_type": "terminal_logs",
             "options": [
-                {"id": "a", "label": "SQL Injection", "desc": "Exploit the unparameterized login query"},
-                {"id": "b", "label": "Brute Force Port 8080", "desc": "Attack the exposed debug port"},
-                {"id": "c", "label": "SSL Certificate Exploit", "desc": "Leverage the expired cert"}
+                {"id": "a", "label": "SQL Injection via /api/search", "desc": "Unsanitized query parameter"},
+                {"id": "b", "label": "Brute Force Port 8080", "desc": "Attack the debug port"},
+                {"id": "c", "label": "SSL Certificate Exploit", "desc": "Expired admin cert"}
             ]
         }
     
     elif challenge_id == "challenge_2":
         return {
-            "title": "CRACK THE VAULT CODE",
-            "subtitle": "Nexus Financial — Inner Vault",
+            "title": "CRACK THE CIPHER",
+            "subtitle": "Caesar Cipher — Shift 7",
             "display_content": VAULT_CIPHER_VISUAL,
             "display_type": "cipher_text",
+            "cipher_method": "caesar",
+            "shift_value": 7,
+            "encrypted_full": "VWLU ZLZHTL",
             "agent_decoded": VAULT_CODE_FIRST_HALF,
-            "input_prompt": "Enter the second half of the code..."
+            "remaining_encrypted": "ZLZHTL",
+            "input_prompt": "Decrypt ZLZHTL (shift -7)..."
         }
     
     elif challenge_id == "challenge_3":
         return {
-            "title": "THE ESCAPE",
-            "subtitle": "⚠ ALARM TRIGGERED — GET OUT NOW",
-            "display_type": "map",
+            "title": "ESCAPE — ANALYZE SECURITY RULES",
+            "subtitle": "Building firewall active — find the open path",
+            "display_type": "firewall_rules",
             "routes": [
                 {
                     "id": "a",
-                    "label": "Route A: Ventilation Shaft",
-                    "desc": "Fast but risky — motion sensors",
+                    "label": "Route A: Vent → Roof → Zip Line",
+                    "desc": "Fast but Rule 1 has motion sensor",
                     "time": "~90 seconds",
                     "risk": "HIGH"
                 },
                 {
                     "id": "b",
-                    "label": "Route B: Service Tunnel",
-                    "desc": "Slow but safe — no sensors",
+                    "label": "Route B: Tunnel → Garage",
+                    "desc": "Slow but only camera logging, no alert",
                     "time": "~180 seconds",
                     "risk": "LOW"
                 }
